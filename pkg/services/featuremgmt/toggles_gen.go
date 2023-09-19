@@ -534,4 +534,8 @@ const (
 	// FlagPrometheusPromQAIL
 	// Prometheus and AI/ML to assist users in creating a query
 	FlagPrometheusPromQAIL = "prometheusPromQAIL"
+
+	// FlagAlertingSaveStateAsync
+	// Writes the state only on a given interval to database
+	FlagAlertingSaveStateAsync = "alertingSaveStateAsync"
 )
