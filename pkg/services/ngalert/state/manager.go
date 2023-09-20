@@ -110,7 +110,7 @@ func NewManager(cfg ManagerCfg) *Manager {
 func (st *Manager) startSync(ctx context.Context) {
 	st.stateRunnerWG.Add(1)
 	go func(ctx context.Context) {
-		ticker := st.clock.Ticker(time.Minute * 5)
+		ticker := st.clock.Ticker(time.Second * 30)
 	infLoop:
 		for {
 			select {
@@ -119,6 +119,7 @@ func (st *Manager) startSync(ctx context.Context) {
 					st.log.Error("Failed to do a full state sync to database", "err", err)
 				}
 			case <-st.stateRunnerShutdown:
+				st.log.Info("Stopping state sync...")
 				shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 				if err := st.fullSync(shutdownCtx); err != nil {
 					st.log.Error("Failed to do a full state sync to database", "err", err)
