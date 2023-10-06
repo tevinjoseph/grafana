@@ -51,6 +51,7 @@ export class TemplateSrv implements BaseTemplateSrv {
   private index: any = {};
   private grafanaVariables = new Map<string, any>();
   private timeRange?: TimeRange | null = null;
+  private _adhocFiltersDeprecationWarningLogged = new Map<string, boolean>();
 
   constructor(private dependencies: TemplateSrvDependencies = runtimeDependencies) {
     this._variables = [];
@@ -111,12 +112,28 @@ export class TemplateSrv implements BaseTemplateSrv {
     this.index[variable.name] = variable;
   }
 
+  /**
+   * @deprecated
+   * Use filters property on the request (DataQueryRequest) or if this is called from
+   * interpolateVariablesInQueries or applyTemplateVariables it is passed as a new argument
+   **/
   getAdhocFilters(datasourceName: string): AdHocVariableFilter[] {
     let filters: any = [];
     let ds = getDataSourceSrv().getInstanceSettings(datasourceName);
 
     if (!ds) {
       return [];
+    }
+
+    if (!this._adhocFiltersDeprecationWarningLogged.get(ds.type)) {
+      if (process.env.NODE_ENV !== 'test') {
+        deprecationWarning(
+          `DataSource ${ds.type}`,
+          'templateSrv.getAdhocFilters',
+          'filters property on the request (DataQueryRequest). Or if this is called from interpolateVariablesInQueries or applyTemplateVariables it is passed as a new argument'
+        );
+      }
+      this._adhocFiltersDeprecationWarningLogged.set(ds.type, true);
     }
 
     for (const variable of this.getAdHocVariables()) {
@@ -224,9 +241,20 @@ export class TemplateSrv implements BaseTemplateSrv {
     format?: string | Function | undefined,
     interpolations?: VariableInterpolation[]
   ): string {
+    // Scenes compatability (primary method) is via SceneObject inside scopedVars. This way we get a much more accurate "local" scope for the evaluation
     if (scopedVars && scopedVars.__sceneObject) {
       return sceneGraph.interpolate(
         scopedVars.__sceneObject.value,
+        target,
+        scopedVars,
+        format as string | VariableCustomFormatterFn | undefined
+      );
+    }
+
+    // Scenes compatability: (secondary method) is using the current active scene as the scope for evaluation.
+    if (window.__grafanaSceneContext && window.__grafanaSceneContext.isActive) {
+      return sceneGraph.interpolate(
+        window.__grafanaSceneContext,
         target,
         scopedVars,
         format as string | VariableCustomFormatterFn | undefined

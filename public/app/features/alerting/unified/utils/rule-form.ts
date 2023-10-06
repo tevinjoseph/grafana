@@ -75,11 +75,17 @@ export const getDefaultFormValues = (): RuleFormValues => {
 };
 
 export function formValuesToRulerRuleDTO(values: RuleFormValues): RulerRuleDTO {
-  const { name, expression, forTime, forTimeUnit, type } = values;
+  const { name, expression, forTime, forTimeUnit, keepFiringForTime, keepFiringForTimeUnit, type } = values;
   if (type === RuleFormType.cloudAlerting) {
+    let keepFiringFor: string | undefined;
+    if (keepFiringForTime && keepFiringForTimeUnit) {
+      keepFiringFor = `${keepFiringForTime}${keepFiringForTimeUnit}`;
+    }
+
     return {
       alert: name,
       for: `${forTime}${forTimeUnit}`,
+      keep_firing_for: keepFiringFor,
       annotations: arrayToRecord(values.annotations || []),
       labels: arrayToRecord(values.labels || []),
       expr: expression,
@@ -174,11 +180,27 @@ export function rulerRuleToFormValues(ruleWithLocation: RuleWithLocation): RuleF
     }
   } else {
     if (isAlertingRulerRule(rule)) {
+      const datasourceUid = getDataSourceSrv().getInstanceSettings(ruleSourceName)?.uid ?? '';
+
+      const defaultQuery = {
+        refId: 'A',
+        datasourceUid,
+        queryType: '',
+        relativeTimeRange: getDefaultRelativeTimeRange(),
+        expr: rule.expr,
+        model: {
+          refId: 'A',
+          hide: false,
+          expr: rule.expr,
+        },
+      };
+
       const alertingRuleValues = alertingRulerRuleToRuleForm(rule);
 
       return {
         ...defaultFormValues,
         ...alertingRuleValues,
+        queries: [defaultQuery],
         annotations: normalizeDefaultAnnotations(listifyLabelsOrAnnotations(rule.annotations, false)),
         type: RuleFormType.cloudAlerting,
         dataSourceName: ruleSourceName,
@@ -204,18 +226,34 @@ export function rulerRuleToFormValues(ruleWithLocation: RuleWithLocation): RuleF
 
 export function alertingRulerRuleToRuleForm(
   rule: RulerAlertingRuleDTO
-): Pick<RuleFormValues, 'name' | 'forTime' | 'forTimeUnit' | 'expression' | 'annotations' | 'labels'> {
+): Pick<
+  RuleFormValues,
+  | 'name'
+  | 'forTime'
+  | 'forTimeUnit'
+  | 'keepFiringForTime'
+  | 'keepFiringForTimeUnit'
+  | 'expression'
+  | 'annotations'
+  | 'labels'
+> {
   const defaultFormValues = getDefaultFormValues();
 
   const [forTime, forTimeUnit] = rule.for
     ? parseInterval(rule.for)
     : [defaultFormValues.forTime, defaultFormValues.forTimeUnit];
 
+  const [keepFiringForTime, keepFiringForTimeUnit] = rule.keep_firing_for
+    ? parseInterval(rule.keep_firing_for)
+    : [defaultFormValues.keepFiringForTime, defaultFormValues.keepFiringForTimeUnit];
+
   return {
     name: rule.alert,
     expression: rule.expr,
     forTime,
     forTimeUnit,
+    keepFiringForTime,
+    keepFiringForTimeUnit,
     annotations: listifyLabelsOrAnnotations(rule.annotations, false),
     labels: listifyLabelsOrAnnotations(rule.labels, true),
   };

@@ -1,7 +1,8 @@
 import { css, cx } from '@emotion/css';
 import React, { useEffect, useRef, useState } from 'react';
 
-import { Button, CustomScrollbar, HorizontalGroup, useStyles2, useTheme2 } from '@grafana/ui';
+import { config } from '@grafana/runtime';
+import { Button, CustomScrollbar, HorizontalGroup, TextLink, useStyles2, useTheme2 } from '@grafana/ui';
 import { getSelectStyles } from '@grafana/ui/src/components/Select/getSelectStyles';
 import { contextSrv } from 'app/core/core';
 import { OrgRole, Role } from 'app/types';
@@ -35,10 +36,23 @@ const fixedRoleGroupNames: Record<string, string> = {
   current: 'Current org',
 };
 
-const noBasicRoleFlag = contextSrv.licensedAccessControlEnabled();
-const tooltipMessage = noBasicRoleFlag
-  ? 'You can now select the "No basic role" option and add permissions to your custom needs.'
-  : undefined;
+const noBasicRoleFlag = contextSrv.licensedAccessControlEnabled() && config.featureToggles.noBasicRole;
+const tooltipMessage = noBasicRoleFlag ? (
+  <>
+    You can now select the &quot;No basic role&quot; option and add permissions to your custom needs. You can find more
+    information in&nbsp;
+    <TextLink
+      href="https://grafana.com/docs/grafana/latest/administration/roles-and-permissions/#organization-roles"
+      variant="bodySmall"
+      external
+    >
+      our documentation
+    </TextLink>
+    .
+  </>
+) : (
+  ''
+);
 
 interface RolePickerMenuProps {
   basicRole?: OrgRole;
@@ -205,7 +219,15 @@ export const RolePickerMenu = ({
       )}
     >
       <div className={customStyles.menu} aria-label="Role picker menu">
-        <CustomScrollbar autoHide={false} autoHeightMax={`${MENU_MAX_HEIGHT}px`} hideHorizontalTrack hideVerticalTrack>
+        <CustomScrollbar
+          autoHide={false}
+          autoHeightMax={`${MENU_MAX_HEIGHT}px`}
+          hideHorizontalTrack
+          hideVerticalTrack
+          // NOTE: this is a way to force hiding of the scrollbar
+          // the scrollbar makes the mouseEvents drop
+          className={cx(customStyles.hideScrollBar)}
+        >
           {showBasicRole && (
             <div className={customStyles.menuSection}>
               <BuiltinRoleSelector

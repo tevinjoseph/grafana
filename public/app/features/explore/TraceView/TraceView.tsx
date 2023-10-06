@@ -48,10 +48,6 @@ const getStyles = (theme: GrafanaTheme2) => ({
   `,
 });
 
-function noop(): {} {
-  return {};
-}
-
 type Props = {
   dataFrames: DataFrame[];
   splitOpenFn?: SplitOpen;
@@ -95,7 +91,7 @@ export function TraceView(props: Props) {
   /**
    * Keeps state of resizable name column width
    */
-  const [spanNameColumnWidth, setSpanNameColumnWidth] = useState(0.25);
+  const [spanNameColumnWidth, setSpanNameColumnWidth] = useState(0.4);
 
   const [focusedSpanId, createFocusSpanLink] = useFocusSpanLink({
     refId: props.dataFrames[0]?.refId,
@@ -165,7 +161,6 @@ export function TraceView(props: Props) {
             updateViewRangeTime={updateViewRangeTime}
           />
           <TraceTimelineViewer
-            registerAccessors={noop}
             findMatchesIDs={spanFilterMatches}
             trace={traceProp}
             datasourceType={datasourceType}

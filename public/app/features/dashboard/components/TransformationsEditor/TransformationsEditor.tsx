@@ -1,4 +1,4 @@
-import { css } from '@emotion/css';
+import { cx, css } from '@emotion/css';
 import React, { ChangeEvent } from 'react';
 import { DragDropContext, Droppable, DropResult } from 'react-beautiful-dnd';
 import { Unsubscribable } from 'rxjs';
@@ -270,26 +270,30 @@ class UnThemedTransformationsEditor extends React.PureComponent<TransformationsE
   };
 
   renderTransformationEditors = () => {
-    const { data, transformations } = this.state;
+    const styles = getStyles(config.theme2);
+    const { data, transformations, showPicker } = this.state;
+    const hide = config.featureToggles.transformationsRedesign && showPicker;
 
     return (
-      <DragDropContext onDragEnd={this.onDragEnd}>
-        <Droppable droppableId="transformations-list" direction="vertical">
-          {(provided) => {
-            return (
-              <div ref={provided.innerRef} {...provided.droppableProps}>
-                <TransformationOperationRows
-                  configs={transformations}
-                  data={data}
-                  onRemove={this.onTransformationRemove}
-                  onChange={this.onTransformationChange}
-                />
-                {provided.placeholder}
-              </div>
-            );
-          }}
-        </Droppable>
-      </DragDropContext>
+      <div className={cx({ [styles.hide]: hide })}>
+        <DragDropContext onDragEnd={this.onDragEnd}>
+          <Droppable droppableId="transformations-list" direction="vertical">
+            {(provided) => {
+              return (
+                <div ref={provided.innerRef} {...provided.droppableProps}>
+                  <TransformationOperationRows
+                    configs={transformations}
+                    data={data}
+                    onRemove={this.onTransformationRemove}
+                    onChange={this.onTransformationChange}
+                  />
+                  {provided.placeholder}
+                </div>
+              );
+            }}
+          </Droppable>
+        </DragDropContext>
+      </div>
     );
   };
 
@@ -550,9 +554,7 @@ class UnThemedTransformationsEditor extends React.PureComponent<TransformationsE
                 />
               </div>
             )}
-            {hasTransforms &&
-              (!config.featureToggles.transformationsRedesign || !this.state.showPicker) &&
-              this.renderTransformationEditors()}
+            {hasTransforms && this.renderTransformationEditors()}
             {this.renderTransformsPicker()}
           </div>
         </Container>
@@ -587,6 +589,9 @@ function TransformationCard({ transform, onClick }: TransformationCardProps) {
 
 const getStyles = (theme: GrafanaTheme2) => {
   return {
+    hide: css`
+      display: none;
+    `,
     card: css`
       margin: 0;
       padding: ${theme.spacing(1)};
@@ -724,19 +729,20 @@ const getTransformationsRedesignDescriptions = (id: string): string => {
     [DataTransformerID.concatenate]: 'Combine all fields into a single frame.',
     [DataTransformerID.configFromData]: 'Set unit, min, max and more.',
     [DataTransformerID.fieldLookup]: 'Use a field value to lookup countries, states, or airports.',
-    [DataTransformerID.filterFieldsByName]: 'Removes part of the query results using a regex pattern.',
-    [DataTransformerID.filterByRefId]: 'Filter out queries in panels that have multiple queries.',
-    [DataTransformerID.filterByValue]: 'Removes rows of the query results using user-defined filters.',
-    [DataTransformerID.groupBy]: 'Group the data by a field value then process calculations.',
-    [DataTransformerID.groupingToMatrix]: 'Summarizes and reorganizes data based on three fields.',
+    [DataTransformerID.filterFieldsByName]: 'Remove parts of the query results using a regex pattern.',
+    [DataTransformerID.filterByRefId]: 'Remove rows from the data based on origin query',
+    [DataTransformerID.filterByValue]: 'Remove rows from the query results using user-defined filters.',
+    [DataTransformerID.groupBy]: 'Group data by a field value and create aggregate data.',
+    [DataTransformerID.groupingToMatrix]: 'Summarize and reorganize data based on three fields.',
     [DataTransformerID.joinByField]: 'Combine rows from 2+ tables, based on a related field.',
-    [DataTransformerID.labelsToFields]: 'Groups series by time and return labels or tags as fields.',
+    [DataTransformerID.labelsToFields]: 'Group series by time and return labels or tags as fields.',
     [DataTransformerID.merge]: 'Merge multiple series. Values will be combined into one row.',
-    [DataTransformerID.organize]: 'Allows the user to re-order, hide, or rename fields / columns.',
-    [DataTransformerID.partitionByValues]: 'Splits a one-frame dataset into multiple series.',
-    [DataTransformerID.prepareTimeSeries]: 'Will stretch data frames from the wide format into the long format.',
+    [DataTransformerID.organize]: 'Re-order, hide, or rename fields.',
+    [DataTransformerID.partitionByValues]: 'Split a one-frame dataset into multiple series.',
+    [DataTransformerID.prepareTimeSeries]: 'Stretch data frames from the wide format into the long format.',
     [DataTransformerID.reduce]: 'Reduce all rows or data points to a single value (ex. max, mean).',
-    [DataTransformerID.renameByRegex]: 'Reduce all rows or data points to a single value (ex. max, mean).',
+    [DataTransformerID.renameByRegex]:
+      'Rename parts of the query results using a regular expression and replacement pattern.',
     [DataTransformerID.seriesToRows]: 'Merge multiple series. Return time, metric and values as a row.',
   };
 

@@ -18,7 +18,7 @@ import {
   extractUnwrapLabelKeysFromDataFrame,
 } from './responseUtils';
 import syntax, { FUNCTIONS, PIPE_PARSERS, PIPE_OPERATORS } from './syntax';
-import { LokiQuery, LokiQueryType } from './types';
+import { ExtractedLabelKeys, LokiQuery, LokiQueryType } from './types';
 
 const DEFAULT_KEYS = ['job', 'namespace'];
 const EMPTY_SELECTOR = '{}';
@@ -29,8 +29,7 @@ const NS_IN_MS = 1000000;
 // When changing RATE_RANGES, check if Prometheus/PromQL ranges should be changed too
 // @see public/app/plugins/datasource/prometheus/promql.ts
 const RATE_RANGES: CompletionItem[] = [
-  { label: '$__interval', sortValue: '$__interval' },
-  { label: '$__range', sortValue: '$__range' },
+  { label: '$__auto', sortValue: '$__auto' },
   { label: '1m', sortValue: '00:01:00' },
   { label: '5m', sortValue: '00:05:00' },
   { label: '10m', sortValue: '00:10:00' },
@@ -460,13 +459,7 @@ export default class LokiLanguageProvider extends LanguageProvider {
     return labelValues ?? [];
   }
 
-  async getParserAndLabelKeys(selector: string): Promise<{
-    extractedLabelKeys: string[];
-    hasJSON: boolean;
-    hasLogfmt: boolean;
-    hasPack: boolean;
-    unwrapLabelKeys: string[];
-  }> {
+  async getParserAndLabelKeys(selector: string): Promise<ExtractedLabelKeys> {
     const series = await this.datasource.getDataSamples({ expr: selector, refId: 'data-samples' });
 
     if (!series.length) {

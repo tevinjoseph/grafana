@@ -5,17 +5,18 @@ import (
 	"time"
 
 	"github.com/grafana/grafana/pkg/infra/slugify"
+	"github.com/grafana/grafana/pkg/services/auth/identity"
 	"github.com/grafana/grafana/pkg/services/user"
 	"github.com/grafana/grafana/pkg/setting"
 	"github.com/grafana/grafana/pkg/util/errutil"
 )
 
-var ErrMaximumDepthReached = errutil.NewBase(errutil.StatusBadRequest, "folder.maximum-depth-reached", errutil.WithPublicMessage("Maximum nested folder depth reached"))
-var ErrBadRequest = errutil.NewBase(errutil.StatusBadRequest, "folder.bad-request")
-var ErrDatabaseError = errutil.NewBase(errutil.StatusInternal, "folder.database-error")
-var ErrInternal = errutil.NewBase(errutil.StatusInternal, "folder.internal")
-var ErrCircularReference = errutil.NewBase(errutil.StatusBadRequest, "folder.circular-reference", errutil.WithPublicMessage("Circular reference detected"))
-var ErrTargetRegistrySrvConflict = errutil.NewBase(errutil.StatusInternal, "folder.target-registry-srv-conflict")
+var ErrMaximumDepthReached = errutil.BadRequest("folder.maximum-depth-reached", errutil.WithPublicMessage("Maximum nested folder depth reached"))
+var ErrBadRequest = errutil.BadRequest("folder.bad-request")
+var ErrDatabaseError = errutil.Internal("folder.database-error")
+var ErrInternal = errutil.Internal("folder.internal")
+var ErrCircularReference = errutil.BadRequest("folder.circular-reference", errutil.WithPublicMessage("Circular reference detected"))
+var ErrTargetRegistrySrvConflict = errutil.Internal("folder.target-registry-srv-conflict")
 
 const (
 	GeneralFolderUID     = "general"
@@ -23,7 +24,7 @@ const (
 	MaxNestedFolderDepth = 8
 )
 
-var ErrFolderNotFound = errutil.NewBase(errutil.StatusNotFound, "folder.notFound")
+var ErrFolderNotFound = errutil.NotFound("folder.notFound")
 
 type Folder struct {
 	ID          int64  `xorm:"pk autoincr 'id'"`
@@ -89,10 +90,6 @@ type CreateFolderCommand struct {
 type UpdateFolderCommand struct {
 	UID   string `json:"-"`
 	OrgID int64  `json:"-"`
-	// NewUID it's an optional parameter used for overriding the existing folder UID
-	// Starting with 10.0, this is deprecated. It will be removed in a future release.
-	// Please avoid using it because it can result in folder loosing its permissions.
-	NewUID *string `json:"uid"` // keep same json tag with the legacy command for not breaking the existing APIs
 	// NewTitle it's an optional parameter used for overriding the existing folder title
 	NewTitle *string `json:"title"` // keep same json tag with the legacy command for not breaking the existing APIs
 	// NewDescription it's an optional parameter used for overriding the existing folder description
@@ -129,15 +126,17 @@ type DeleteFolderCommand struct {
 
 // GetFolderQuery is used for all folder Get requests. Only one of UID, ID, or
 // Title should be set; if multiple fields are set by the caller the dashboard
-// service will select the field with the most specificity, in order: ID, UID,
-// Title.
+// service will select the field with the most specificity, in order: UID, ID
+// Title. If Title is set, it will fetch the folder in the root folder.
+// Callers can additionally set the ParentUID field to fetch a folder by title under a specific folder.
 type GetFolderQuery struct {
-	UID   *string
-	ID    *int64
-	Title *string
-	OrgID int64
+	UID       *string
+	ParentUID *string
+	ID        *int64
+	Title     *string
+	OrgID     int64
 
-	SignedInUser *user.SignedInUser `json:"-"`
+	SignedInUser identity.Requester `json:"-"`
 }
 
 // GetParentsQuery captures the information required by the folder service to
