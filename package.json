@@ -402,7 +402,6 @@
     "regenerator-runtime": "0.13.11",
     "reselect": "4.1.8",
     "rxjs": "7.8.1",
-    "sass": "link:./public/sass",
     "selecto": "1.26.0",
     "semver": "7.5.4",
     "slate": "0.47.9",
@@ -431,11 +430,20 @@
     "semver@~7.0.0": "7.5.4",
     "semver@7.3.4": "7.5.4",
     "slate-dev-environment@^0.2.2": "patch:slate-dev-environment@npm:0.2.5#.yarn/patches/slate-dev-environment-npm-0.2.5-9aeb7da7b5.patch",
-    "react-split-pane@0.1.92": "patch:react-split-pane@npm:0.1.92#.yarn/patches/react-split-pane-npm-0.1.92-93dbf51dff.patch"
+    "react-split-pane@0.1.92": "patch:react-split-pane@npm:0.1.92#.yarn/patches/react-split-pane-npm-0.1.92-93dbf51dff.patch",
+    "@storybook/blocks@7.4.5": "patch:@storybook/blocks@npm%3A7.4.5#./.yarn/patches/@storybook-blocks-npm-7.4.5-5a2374564a.patch"
   },
   "pnpm": {
     "overrides": {
-      "ngtemplate-loader>loader-utils": "^2.0.0"
+      "ngtemplate-loader>loader-utils": "^2.0.0",
+      "slate-dev-environment@^0.2.2": "^0.2.2",
+      "react-split-pane@0.1.92": "0.1.92",
+      "@storybook/blocks@7.4.5": "7.4.5"
+    },
+    "patchedDependencies": {
+      "slate-dev-environment@0.2.5": ".yarn/patches/slate-dev-environment-npm-0.2.5-9aeb7da7b5.patch",
+      "react-split-pane@0.1.92": ".yarn/patches/react-split-pane-npm-0.1.92-93dbf51dff.patch",
+      "@storybook/blocks@7.4.5": ".yarn/patches/@storybook-blocks-npm-7.4.5-5a2374564a.patch"
     }
   },
   "workspaces": {
