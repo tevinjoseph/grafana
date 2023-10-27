@@ -1051,8 +1051,9 @@ steps:
     true\n---\n'' > /hugo/content/docs/grafana/_index.md'
   - cp -r docs/sources/* /hugo/content/docs/grafana/latest/
   - cd /hugo && make prod
-  image: grafana/docs-base:dbd975af06
+  image: grafana/docs-base:latest
   name: build-docs-website
+  pull: always
 - commands:
   - '# It is required that code generated from Thema/CUE be committed and in sync
     with its inputs.'
@@ -1344,8 +1345,9 @@ steps:
     true\n---\n'' > /hugo/content/docs/grafana/_index.md'
   - cp -r docs/sources/* /hugo/content/docs/grafana/latest/
   - cd /hugo && make prod
-  image: grafana/docs-base:dbd975af06
+  image: grafana/docs-base:latest
   name: build-docs-website
+  pull: always
 - commands:
   - '# It is required that code generated from Thema/CUE be committed and in sync
     with its inputs.'
@@ -4334,7 +4336,7 @@ steps:
   - trivy --exit-code 0 --severity UNKNOWN,LOW,MEDIUM osixia/openldap:1.4.0
   - trivy --exit-code 0 --severity UNKNOWN,LOW,MEDIUM grafana/drone-downstream
   - trivy --exit-code 0 --severity UNKNOWN,LOW,MEDIUM grafana/docker-puppeteer:1.1.0
-  - trivy --exit-code 0 --severity UNKNOWN,LOW,MEDIUM grafana/docs-base:dbd975af06
+  - trivy --exit-code 0 --severity UNKNOWN,LOW,MEDIUM grafana/docs-base:latest
   - trivy --exit-code 0 --severity UNKNOWN,LOW,MEDIUM cypress/included:9.5.1-node16.14.0-slim-chrome99-ff97
   - trivy --exit-code 0 --severity UNKNOWN,LOW,MEDIUM jwilder/dockerize:0.6.1
   - trivy --exit-code 0 --severity UNKNOWN,LOW,MEDIUM koalaman/shellcheck:stable
@@ -4368,7 +4370,7 @@ steps:
   - trivy --exit-code 1 --severity HIGH,CRITICAL osixia/openldap:1.4.0
   - trivy --exit-code 1 --severity HIGH,CRITICAL grafana/drone-downstream
   - trivy --exit-code 1 --severity HIGH,CRITICAL grafana/docker-puppeteer:1.1.0
-  - trivy --exit-code 1 --severity HIGH,CRITICAL grafana/docs-base:dbd975af06
+  - trivy --exit-code 1 --severity HIGH,CRITICAL grafana/docs-base:latest
   - trivy --exit-code 1 --severity HIGH,CRITICAL cypress/included:9.5.1-node16.14.0-slim-chrome99-ff97
   - trivy --exit-code 1 --severity HIGH,CRITICAL jwilder/dockerize:0.6.1
   - trivy --exit-code 1 --severity HIGH,CRITICAL koalaman/shellcheck:stable
@@ -4597,6 +4599,6 @@ kind: secret
 name: gcr_credentials
 ---
 kind: signature
-hmac: 83dc49f8b1d42df71588e0cd74ba6ef64ce416ebf072ec82478ee0f958572523
+hmac: f7d2d52c85f2eb6eece7a3aa2143d02b0c1ae350ab626b9f5ed429f4cc889054
 
 ...
