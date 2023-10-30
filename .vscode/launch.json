@@ -9,13 +9,7 @@
       "program": "${workspaceFolder}/pkg/cmd/grafana/",
       "env": {},
       "cwd": "${workspaceFolder}",
-      "args": [
-        "server",
-        "--homepath",
-        "${workspaceFolder}",
-        "--packaging",
-        "dev"
-      ],
+      "args": ["server", "--homepath", "${workspaceFolder}", "--packaging", "dev"]
     },
     {
       "name": "Attach to Chrome",
@@ -29,12 +23,7 @@
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "yarn",
-      "runtimeArgs": [
-        "run",
-        "jest",
-        "--runInBand",
-        "${file}"
-      ],
+      "runtimeArgs": ["run", "jest", "--runInBand", "${file}"],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "port": 9229
