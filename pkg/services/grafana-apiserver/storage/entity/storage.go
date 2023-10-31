@@ -3,7 +3,7 @@
 // Provenance-includes-license: Apache-2.0
 // Provenance-includes-copyright: The Kubernetes Authors.
 
-package grafanaapiserver
+package entity
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/apiserver/pkg/storage/storagebackend/factory"
 
-	"github.com/grafana/grafana/pkg/services/store/entity"
+	entityStore "github.com/grafana/grafana/pkg/services/store/entity"
 	"github.com/grafana/grafana/pkg/util"
 )
 
@@ -33,7 +33,7 @@ const MaxUpdateAttempts = 1
 // Storage implements storage.Interface and storage resources as JSON files on disk.
 type Storage struct {
 	config       *storagebackend.ConfigForResource
-	store        entity.EntityStoreServer
+	store        entityStore.EntityStoreServer
 	gr           schema.GroupResource
 	codec        runtime.Codec
 	keyFunc      func(obj runtime.Object) (string, error)
@@ -55,7 +55,7 @@ var ErrNamespaceNotExists = errors.New("namespace does not exist")
 func NewStorage(
 	config *storagebackend.ConfigForResource,
 	gr schema.GroupResource,
-	store entity.EntityStoreServer,
+	store entityStore.EntityStoreServer,
 	codec runtime.Codec,
 	keyFunc func(obj runtime.Object) (string, error),
 	newFunc func() runtime.Object,
@@ -112,7 +112,7 @@ func (s *Storage) Create(ctx context.Context, key string, obj runtime.Object, ou
 		return err
 	}
 
-	req := &entity.WriteEntityRequest{
+	req := &entityStore.WriteEntityRequest{
 		Entity: e,
 	}
 
@@ -122,7 +122,7 @@ func (s *Storage) Create(ctx context.Context, key string, obj runtime.Object, ou
 	if err != nil {
 		return err
 	}
-	if rsp.Status != entity.WriteEntityResponse_CREATED {
+	if rsp.Status != entityStore.WriteEntityResponse_CREATED {
 		return fmt.Errorf("this was not a create operation... (%s)", rsp.Status.String())
 	}
 
@@ -165,7 +165,7 @@ func (s *Storage) Delete(
 		previousVersion = *preconditions.ResourceVersion
 	}
 
-	rsp, err := s.store.Delete(ctx, &entity.DeleteEntityRequest{
+	rsp, err := s.store.Delete(ctx, &entityStore.DeleteEntityRequest{
 		GRN:             grn,
 		PreviousVersion: previousVersion,
 	})
@@ -204,7 +204,7 @@ func (s *Storage) Get(ctx context.Context, key string, opts storage.GetOptions, 
 		return apierrors.NewInternalError(err)
 	}
 
-	rsp, err := s.store.Read(ctx, &entity.ReadEntityRequest{
+	rsp, err := s.store.Read(ctx, &entityStore.ReadEntityRequest{
 		Key:         key,
 		WithMeta:    true,
 		WithBody:    true,
@@ -257,7 +257,7 @@ func (s *Storage) GetList(ctx context.Context, key string, opts storage.ListOpti
 		return err
 	}
 
-	rsp, err := s.store.Search(ctx, &entity.EntitySearchRequest{
+	rsp, err := s.store.Search(ctx, &entityStore.EntitySearchRequest{
 		// Kind:     []string{s.newFunc().GetObjectKind().GroupVersionKind().Kind},
 		Key:      []string{k},
 		WithBody: true,
@@ -374,7 +374,7 @@ func (s *Storage) guaranteedUpdate(
 		previousVersion = *preconditions.ResourceVersion
 	}
 
-	req := &entity.WriteEntityRequest{
+	req := &entityStore.WriteEntityRequest{
 		Entity:          e,
 		PreviousVersion: previousVersion,
 	}
@@ -386,7 +386,7 @@ func (s *Storage) guaranteedUpdate(
 		return err // continue???
 	}
 
-	if rsp.Status == entity.WriteEntityResponse_UNCHANGED {
+	if rsp.Status == entityStore.WriteEntityResponse_UNCHANGED {
 		return nil // destination is already set
 	}
 

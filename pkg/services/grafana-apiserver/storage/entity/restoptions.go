@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package grafanaapiserver
+package entity
 
 import (
 	"encoding/json"
@@ -16,7 +16,7 @@ import (
 	flowcontrolrequest "k8s.io/apiserver/pkg/util/flowcontrol/request"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/grafana/grafana/pkg/services/store/entity"
+	entityStore "github.com/grafana/grafana/pkg/services/store/entity"
 	"github.com/grafana/grafana/pkg/setting"
 )
 
@@ -24,11 +24,11 @@ var _ generic.RESTOptionsGetter = (*RESTOptionsGetter)(nil)
 
 type RESTOptionsGetter struct {
 	cfg   *setting.Cfg
-	store entity.EntityStoreServer
+	store entityStore.EntityStoreServer
 	Codec runtime.Codec
 }
 
-func NewRESTOptionsGetter(cfg *setting.Cfg, store entity.EntityStoreServer, codec runtime.Codec) *RESTOptionsGetter {
+func NewRESTOptionsGetter(cfg *setting.Cfg, store entityStore.EntityStoreServer, codec runtime.Codec) *RESTOptionsGetter {
 	return &RESTOptionsGetter{
 		cfg:   cfg,
 		store: store,

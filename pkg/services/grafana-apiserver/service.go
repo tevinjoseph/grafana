@@ -35,6 +35,7 @@ import (
 	"github.com/grafana/grafana/pkg/registry"
 	contextmodel "github.com/grafana/grafana/pkg/services/contexthandler/model"
 	"github.com/grafana/grafana/pkg/services/featuremgmt"
+	entitystorage "github.com/grafana/grafana/pkg/services/grafana-apiserver/storage/entity"
 	filestorage "github.com/grafana/grafana/pkg/services/grafana-apiserver/storage/file"
 	entityDB "github.com/grafana/grafana/pkg/services/store/entity/db"
 	"github.com/grafana/grafana/pkg/services/store/entity/sqlstash"
@@ -279,7 +280,7 @@ func (s *service) start(ctx context.Context) error {
 			return err
 		}
 
-		serverConfig.Config.RESTOptionsGetter = NewRESTOptionsGetter(s.cfg, store, nil)
+		serverConfig.Config.RESTOptionsGetter = entitystorage.NewRESTOptionsGetter(s.cfg, store, nil)
 	}
 
 	if s.config.storageType == StorageTypeFile {

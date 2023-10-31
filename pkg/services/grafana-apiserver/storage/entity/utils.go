@@ -1,4 +1,4 @@
-package grafanaapiserver
+package entity
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 
 	"github.com/grafana/grafana/pkg/infra/appcontext"
 	"github.com/grafana/grafana/pkg/infra/grn"
-	"github.com/grafana/grafana/pkg/services/store/entity"
+	entityStore "github.com/grafana/grafana/pkg/services/store/entity"
 	"github.com/grafana/grafana/pkg/services/user"
 	"github.com/grafana/grafana/pkg/util"
 )
@@ -92,7 +92,7 @@ func keyToGRN(key string, kindName string) (*grn.GRN, error) {
 }
 
 // this is terrible... but just making it work!!!!
-func entityToResource(rsp *entity.Entity, res runtime.Object) error {
+func entityToResource(rsp *entityStore.Entity, res runtime.Object) error {
 	var err error
 
 	metaAccessor, err := meta.Accessor(res)
@@ -187,7 +187,7 @@ func entityToResource(rsp *entity.Entity, res runtime.Object) error {
 	return nil
 }
 
-func resourceToEntity(key string, res runtime.Object) (*entity.Entity, error) {
+func resourceToEntity(key string, res runtime.Object) (*entityStore.Entity, error) {
 	metaAccessor, err := meta.Accessor(res)
 	if err != nil {
 		return nil, err
@@ -200,7 +200,7 @@ func resourceToEntity(key string, res runtime.Object) (*entity.Entity, error) {
 		return nil, err
 	}
 
-	rsp := &entity.Entity{
+	rsp := &entityStore.Entity{
 		GRN:          g,
 		GroupVersion: res.GetObjectKind().GroupVersionKind().Version,
 		Key:          key,
@@ -212,7 +212,7 @@ func resourceToEntity(key string, res runtime.Object) (*entity.Entity, error) {
 		CreatedBy:    metaAccessor.GetAnnotations()["grafana.app/createdBy"],
 		UpdatedBy:    metaAccessor.GetAnnotations()["grafana.app/updatedBy"],
 		Slug:         metaAccessor.GetAnnotations()["grafana.app/slug"],
-		Origin: &entity.EntityOriginInfo{
+		Origin: &entityStore.EntityOriginInfo{
 			Source: metaAccessor.GetAnnotations()["grafana.app/originName"],
 			Key:    metaAccessor.GetAnnotations()["grafana.app/originKey"],
 			// Path: metaAccessor.GetAnnotations()["grafana.app/originPath"],

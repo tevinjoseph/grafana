@@ -71,14 +71,6 @@ func (m *GrafanaResourceMetadata) set(key string, val string) {
 	m.Annotations[key] = val
 }
 
-func (m *GrafanaResourceMetadata) set(key string, val string) {
-	if val == "" {
-		delete(m.Annotations, key)
-	} else {
-		m.Annotations[key] = val
-	}
-}
-
 func (m *GrafanaResourceMetadata) GetUpdatedTimestamp() *time.Time {
 	v, ok := m.Annotations[annoKeyUpdatedTimestamp]
 	if ok {
