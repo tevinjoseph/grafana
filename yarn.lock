@@ -2731,12 +2731,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@fingerprintjs/fingerprintjs@npm:^3.4.2":
-  version: 3.4.2
-  resolution: "@fingerprintjs/fingerprintjs@npm:3.4.2"
+"@fingerprintjs/fingerprintjs@npm:^4.0.0":
+  version: 4.1.0
+  resolution: "@fingerprintjs/fingerprintjs@npm:4.1.0"
   dependencies:
     tslib: "npm:^2.4.1"
-  checksum: 14117347b17ae359a62bb81baf8840018e8e65a97c372835819ab1a947c10b907e9e369b3c02b0359f6298a379916475aa12e61989f2def57709a50facd341f0
+  checksum: 8a01299b4af1c4cad7f26aa4cf313118e5072b1dcdebeea1936ed8fac54606b60c479359489c785daae950b6ff89921e822cb1cfbe39981692e6123d47c32ac7
   languageName: node
   linkType: hard
 
@@ -17092,7 +17092,7 @@ __metadata:
     "@emotion/css": "npm:11.11.2"
     "@emotion/eslint-plugin": "npm:11.11.0"
     "@emotion/react": "npm:11.11.1"
-    "@fingerprintjs/fingerprintjs": "npm:^3.4.2"
+    "@fingerprintjs/fingerprintjs": "npm:^4.0.0"
     "@glideapps/glide-data-grid": "npm:^5.2.1"
     "@grafana-plugins/grafana-testdata-datasource": "workspace:*"
     "@grafana/aws-sdk": "npm:0.2.0"
