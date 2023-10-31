@@ -18,6 +18,7 @@ import (
 
 	"github.com/grafana/grafana/pkg/infra/appcontext"
 	"github.com/grafana/grafana/pkg/infra/grn"
+	"github.com/grafana/grafana/pkg/kinds"
 	entityStore "github.com/grafana/grafana/pkg/services/store/entity"
 	"github.com/grafana/grafana/pkg/services/user"
 	"github.com/grafana/grafana/pkg/util"
@@ -126,35 +127,32 @@ func entityToResource(rsp *entityStore.Entity, res runtime.Object) error {
 	metaAccessor.SetResourceVersion(rsp.Version)
 	metaAccessor.SetCreationTimestamp(metav1.Unix(rsp.CreatedAt/1000, rsp.CreatedAt%1000*1000000))
 
-	annotations := metaAccessor.GetAnnotations()
-	if annotations == nil {
-		annotations = map[string]string{}
-	}
+	grafanaAccessor := kinds.MetaAccessor(metaAccessor)
 
 	if rsp.Folder != "" {
-		annotations["grafana.app/folder"] = rsp.Folder
+		grafanaAccessor.SetFolder(rsp.Folder)
 	}
 	if rsp.CreatedBy != "" {
-		annotations["grafana.app/createdBy"] = rsp.CreatedBy
+		grafanaAccessor.SetCreatedBy(rsp.CreatedBy)
 	}
 	if rsp.UpdatedBy != "" {
-		annotations["grafana.app/updatedBy"] = rsp.UpdatedBy
+		grafanaAccessor.SetUpdatedBy(rsp.UpdatedBy)
 	}
 	if rsp.UpdatedAt != 0 {
 		updatedAt := time.UnixMilli(rsp.UpdatedAt).UTC()
-		annotations["grafana.app/updatedTimestamp"] = updatedAt.Format(time.RFC3339)
+		grafanaAccessor.SetUpdatedTimestamp(&updatedAt)
 	}
-	annotations["grafana.app/slug"] = rsp.Slug
+	grafanaAccessor.SetSlug(rsp.Slug)
 
 	if rsp.Origin != nil {
 		originTime := time.UnixMilli(rsp.Origin.Time).UTC()
-		annotations["grafana.app/originName"] = rsp.Origin.Source
-		annotations["grafana.app/originKey"] = rsp.Origin.Key
-		annotations["grafana.app/originTimestamp"] = originTime.Format(time.RFC3339)
-		annotations["grafana.app/originPath"] = "" // rsp.Origin.Path
+		grafanaAccessor.SetOriginInfo(&kinds.ResourceOriginInfo{
+			Name: rsp.Origin.Source,
+			Key:  rsp.Origin.Key,
+			// Path: rsp.Origin.Path,
+			Timestamp: &originTime,
+		})
 	}
-
-	metaAccessor.SetAnnotations(annotations)
 
 	if len(rsp.Labels) > 0 {
 		metaAccessor.SetLabels(rsp.Labels)
@@ -200,6 +198,8 @@ func resourceToEntity(key string, res runtime.Object) (*entityStore.Entity, erro
 		return nil, err
 	}
 
+	grafanaAccessor := kinds.MetaAccessor(metaAccessor)
+
 	rsp := &entityStore.Entity{
 		GRN:          g,
 		GroupVersion: res.GetObjectKind().GroupVersionKind().Version,
@@ -207,32 +207,24 @@ func resourceToEntity(key string, res runtime.Object) (*entityStore.Entity, erro
 		Name:         metaAccessor.GetName(),
 		Guid:         string(metaAccessor.GetUID()),
 		Version:      metaAccessor.GetResourceVersion(),
-		Folder:       metaAccessor.GetAnnotations()["grafana.app/folder"],
+		Folder:       grafanaAccessor.GetFolder(),
 		CreatedAt:    metaAccessor.GetCreationTimestamp().Time.UnixMilli(),
-		CreatedBy:    metaAccessor.GetAnnotations()["grafana.app/createdBy"],
-		UpdatedBy:    metaAccessor.GetAnnotations()["grafana.app/updatedBy"],
-		Slug:         metaAccessor.GetAnnotations()["grafana.app/slug"],
+		CreatedBy:    grafanaAccessor.GetCreatedBy(),
+		UpdatedBy:    grafanaAccessor.GetUpdatedBy(),
+		Slug:         grafanaAccessor.GetSlug(),
 		Origin: &entityStore.EntityOriginInfo{
-			Source: metaAccessor.GetAnnotations()["grafana.app/originName"],
-			Key:    metaAccessor.GetAnnotations()["grafana.app/originKey"],
-			// Path: metaAccessor.GetAnnotations()["grafana.app/originPath"],
+			Source: grafanaAccessor.GetOriginName(),
+			Key:    grafanaAccessor.GetOriginKey(),
+			// Path: kinds.GetOriginPath(metaAccessor),
 		},
 		Labels: metaAccessor.GetLabels(),
 	}
 
-	if metaAccessor.GetAnnotations()["grafana.app/updatedTimestamp"] != "" {
-		t, err := time.Parse(time.RFC3339, metaAccessor.GetAnnotations()["grafana.app/updatedTimestamp"])
-		if err != nil {
-			return nil, err
-		}
+	if t := grafanaAccessor.GetUpdatedTimestamp(); t != nil {
 		rsp.UpdatedAt = t.UnixMilli()
 	}
 
-	if metaAccessor.GetAnnotations()["grafana.app/originTimestamp"] != "" {
-		t, err := time.Parse(time.RFC3339, metaAccessor.GetAnnotations()["grafana.app/originTimestamp"])
-		if err != nil {
-			return nil, err
-		}
+	if t := grafanaAccessor.GetOriginTimestamp(); t != nil {
 		rsp.Origin.Time = t.UnixMilli()
 	}
 
