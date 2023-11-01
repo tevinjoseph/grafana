@@ -239,6 +239,12 @@ func (ng *AlertNG) init() error {
 	if err != nil {
 		return err
 	}
+	logger := log.New("ngalert.state.manager.persist")
+	doNotSaveNormalState := ng.FeatureToggles.IsEnabled(featuremgmt.FlagAlertingNoNormalState)
+	persister := state.NewSyncStatePerisiter(logger, ng.store, doNotSaveNormalState, ng.Cfg.UnifiedAlerting.MaxStateSaveConcurrency)
+	if ng.FeatureToggles.IsEnabled(featuremgmt.FlagAlertingSaveStateAsync) {
+		persister = state.NewAsyncStatePerisiter(logger, ng.store, doNotSaveNormalState)
+	}
 	cfg := state.ManagerCfg{
 		Metrics:                        ng.Metrics.GetStateMetrics(),
 		ExternalURL:                    appUrl,
@@ -246,12 +252,10 @@ func (ng *AlertNG) init() error {
 		Images:                         ng.ImageService,
 		Clock:                          clk,
 		Historian:                      history,
-		DoNotSaveNormalState:           ng.FeatureToggles.IsEnabled(featuremgmt.FlagAlertingNoNormalState),
-		MaxStateSaveConcurrency:        ng.Cfg.UnifiedAlerting.MaxStateSaveConcurrency,
 		ApplyNoDataAndErrorToAllStates: ng.FeatureToggles.IsEnabled(featuremgmt.FlagAlertingNoDataErrorExecution),
 		Tracer:                         ng.tracer,
 		Log:                            log.New("ngalert.state.manager"),
-		SaveStateAsync:                 ng.FeatureToggles.IsEnabled(featuremgmt.FlagAlertingSaveStateAsync),
+		StatePersister:                 persister,
 	}
 	stateManager := state.NewManager(cfg)
 	scheduler := schedule.NewScheduler(schedCfg, stateManager)
