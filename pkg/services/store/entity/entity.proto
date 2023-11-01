@@ -234,6 +234,62 @@ message WriteEntityResponse {
 }
 
 //-----------------------------------------------
+// Create request/response
+//-----------------------------------------------
+
+message CreateEntityRequest {
+  // Entity details
+  Entity entity = 1;
+}
+
+message CreateEntityResponse {
+  // Error info -- if exists, the save did not happen
+  EntityErrorInfo error = 1;
+
+  // Entity details
+  Entity entity = 2;
+
+  // Status code
+  Status status = 3;
+
+  // Status enumeration
+  enum Status {
+    ERROR = 0;
+    CREATED = 1;
+  }
+}
+
+//-----------------------------------------------
+// Update request/response
+//-----------------------------------------------
+
+message UpdateEntityRequest {
+  // Entity details
+  Entity entity = 1;
+
+  // Used for optimistic locking.  If missing, the previous version will be replaced regardless
+  string previous_version = 2;
+}
+
+message UpdateEntityResponse {
+  // Error info -- if exists, the save did not happen
+  EntityErrorInfo error = 1;
+
+  // Entity details
+  Entity entity = 2;
+
+  // Status code
+  Status status = 3;
+
+  // Status enumeration
+  enum Status {
+    ERROR = 0;
+    UPDATED = 1;
+    UNCHANGED = 2;
+  }
+}
+
+//-----------------------------------------------
 // Delete request/response
 //-----------------------------------------------
 
@@ -467,6 +523,8 @@ service EntityStore {
   rpc Read(ReadEntityRequest) returns (Entity);
   rpc BatchRead(BatchReadEntityRequest) returns (BatchReadEntityResponse);
   rpc Write(WriteEntityRequest) returns (WriteEntityResponse);
+  rpc Create(CreateEntityRequest) returns (CreateEntityResponse);
+  rpc Update(UpdateEntityRequest) returns (UpdateEntityResponse);
   rpc Delete(DeleteEntityRequest) returns (DeleteEntityResponse);
   rpc History(EntityHistoryRequest) returns (EntityHistoryResponse);
   rpc Search(EntitySearchRequest) returns (EntitySearchResponse);

@@ -204,6 +204,9 @@ type GrafanaResourceMetaAccessor interface {
 	GetOriginTimestamp() *time.Time
 }
 
+var _ GrafanaResourceMetaAccessor = (*grafanaResourceMetaAccessor)(nil)
+var _ GrafanaResourceMetaAccessor = &GrafanaResourceMetadata{}
+
 type grafanaResourceMetaAccessor struct {
 	v1.Object
 }

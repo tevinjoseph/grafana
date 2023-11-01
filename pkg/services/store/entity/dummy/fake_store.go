@@ -25,6 +25,14 @@ func (i fakeEntityStore) Write(ctx context.Context, r *entity.WriteEntityRequest
 	return nil, fmt.Errorf("unimplemented")
 }
 
+func (i fakeEntityStore) Create(ctx context.Context, r *entity.CreateEntityRequest) (*entity.CreateEntityResponse, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (i fakeEntityStore) Update(ctx context.Context, r *entity.UpdateEntityRequest) (*entity.UpdateEntityResponse, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
 func (i fakeEntityStore) Read(ctx context.Context, r *entity.ReadEntityRequest) (*entity.Entity, error) {
 	return nil, fmt.Errorf("unimplemented")
 }

@@ -573,6 +573,447 @@ func (s *sqlEntityServer) AdminWrite(ctx context.Context, r *entity.AdminWriteEn
 	return rsp, err
 }
 
+func (s *sqlEntityServer) Create(ctx context.Context, r *entity.CreateEntityRequest) (*entity.CreateEntityResponse, error) {
+	grn, err := s.validateGRN(ctx, r.Entity.GRN)
+	if err != nil {
+		s.log.Error("error validating GRN", "msg", err.Error())
+		return nil, err
+	}
+
+	fmt.Printf("r.Entity: %#v\n", r.Entity)
+
+	timestamp := time.Now().UnixMilli()
+	createdAt := r.Entity.CreatedAt
+	createdBy := r.Entity.CreatedBy
+	updatedAt := r.Entity.UpdatedAt
+	updatedBy := r.Entity.UpdatedBy
+	if updatedBy == "" {
+		modifier, err := appcontext.User(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if modifier == nil {
+			return nil, fmt.Errorf("can not find user in context")
+		}
+		updatedBy = store.GetUserIDString(modifier)
+	}
+	if updatedAt < 1000 {
+		updatedAt = timestamp
+	}
+
+	rsp := &entity.CreateEntityResponse{
+		Entity: &entity.Entity{},
+		Status: entity.CreateEntityResponse_CREATED, // Will be changed if not true
+	}
+
+	err = s.sess.WithTransaction(ctx, func(tx *session.SessionTx) error {
+		current, err := s.read(ctx, tx, &entity.ReadEntityRequest{
+			GRN:         grn,
+			WithMeta:    true,
+			WithBody:    true,
+			WithStatus:  true,
+			WithSummary: true,
+		})
+		if err != nil {
+			return err
+		}
+
+		// if we found an existing entity
+		if current.Guid != "" {
+			return fmt.Errorf("entity already exists")
+		}
+
+		// generate guid for new entity
+		current.Guid = ulid.Make().String()
+		current.GRN = grn
+		current.Key = r.Entity.Key
+
+		if r.Entity.GroupVersion != "" {
+			current.GroupVersion = r.Entity.GroupVersion
+		}
+
+		if r.Entity.Folder != "" {
+			current.Folder = r.Entity.Folder
+		}
+		if r.Entity.Slug != "" {
+			current.Slug = r.Entity.Slug
+		}
+
+		if r.Entity.Body != nil {
+			current.Body = r.Entity.Body
+			current.Size = int64(len(current.Body))
+		}
+
+		if r.Entity.Meta != nil {
+			current.Meta = r.Entity.Meta
+		}
+
+		if r.Entity.Status != nil {
+			current.Status = r.Entity.Status
+		}
+
+		etag := createContentsHash(current.Body, current.Meta, current.Status)
+		current.ETag = etag
+		current.UpdatedAt = updatedAt
+		current.UpdatedBy = updatedBy
+
+		if r.Entity.Name != "" {
+			current.Name = r.Entity.Name
+		}
+		if r.Entity.Description != "" {
+			current.Description = r.Entity.Description
+		}
+
+		labels, err := json.Marshal(r.Entity.Labels)
+		if err != nil {
+			s.log.Error("error marshalling labels", "msg", err.Error())
+			return err
+		}
+
+		fields, err := json.Marshal(r.Entity.Fields)
+		if err != nil {
+			s.log.Error("error marshalling fields", "msg", err.Error())
+			return err
+		}
+
+		errors, err := json.Marshal(r.Entity.Errors)
+		if err != nil {
+			s.log.Error("error marshalling errors", "msg", err.Error())
+			return err
+		}
+
+		if current.Origin == nil {
+			current.Origin = &entity.EntityOriginInfo{}
+		}
+
+		if r.Entity.Origin != nil {
+			if r.Entity.Origin.Source != "" {
+				current.Origin.Source = r.Entity.Origin.Source
+			}
+			if r.Entity.Origin.Key != "" {
+				current.Origin.Key = r.Entity.Origin.Key
+			}
+			if r.Entity.Origin.Time > 0 {
+				current.Origin.Time = r.Entity.Origin.Time
+			}
+		}
+
+		// Set the comment on this write
+		if r.Entity.Message != "" {
+			current.Message = r.Entity.Message
+		}
+
+		// Update version
+		current.Version = s.snowflake.Generate().String()
+
+		values := map[string]any{
+			// below are only set at creation
+			"guid":       current.Guid,
+			"key":        current.Key,
+			"tenant_id":  grn.TenantID,
+			"group":      grn.ResourceGroup,
+			"kind":       grn.ResourceKind,
+			"uid":        grn.ResourceIdentifier,
+			"created_at": createdAt,
+			"created_by": createdBy,
+			// below are set during creation and update
+			"group_version": current.GroupVersion,
+			"folder":        current.Folder,
+			"slug":          current.Slug,
+			"updated_at":    updatedAt,
+			"updated_by":    updatedBy,
+			"body":          current.Body,
+			"meta":          current.Meta,
+			"status":        current.Status,
+			"size":          current.Size,
+			"etag":          current.ETag,
+			"version":       current.Version,
+			"name":          current.Name,
+			"description":   current.Description,
+			"labels":        labels,
+			"fields":        fields,
+			"errors":        errors,
+			"origin":        current.Origin.Source,
+			"origin_key":    current.Origin.Key,
+			"origin_ts":     current.Origin.Time,
+			"message":       current.Message,
+		}
+
+		fmt.Printf("VALUES: %+v\n", values)
+		fmt.Printf("CURRENT: %+v\n", current)
+
+		// 1. Add the `entity_history` values
+		query, args, err := s.dialect.InsertQuery("entity_history", values)
+		if err != nil {
+			s.log.Error("error building entity history insert", "msg", err.Error())
+			return err
+		}
+
+		_, err = tx.Exec(ctx, query, args...)
+		if err != nil {
+			s.log.Error("error writing entity history", "msg", err.Error())
+			return err
+		}
+
+		// 2. Add/update the main `entity` table
+		query, args, err = s.dialect.InsertQuery("entity", values)
+		if err != nil {
+			s.log.Error("error building entity insert sql", "msg", err.Error())
+			return err
+		}
+
+		_, err = tx.Exec(ctx, query, args...)
+		if err != nil {
+			s.log.Error("error inserting entity", "msg", err.Error())
+			return err
+		}
+
+		/*
+			switch current.GRN.ResourceKind {
+			case entity.StandardKindFolder:
+				err = updateFolderTree(ctx, tx, r.Entity.GRN.TenantID)
+				if err != nil {
+					s.log.Error("error updating folder tree", "msg", err.Error())
+					return err
+				}
+			}
+		*/
+
+		rsp.Entity = current
+
+		return nil // s.writeSearchInfo(ctx, tx, current)
+	})
+	if err != nil {
+		s.log.Error("error creating entity", "msg", err.Error())
+		rsp.Status = entity.CreateEntityResponse_ERROR
+	}
+
+	return rsp, err
+}
+
+//nolint:gocyclo
+func (s *sqlEntityServer) Update(ctx context.Context, r *entity.UpdateEntityRequest) (*entity.UpdateEntityResponse, error) {
+	grn, err := s.validateGRN(ctx, r.Entity.GRN)
+	if err != nil {
+		s.log.Error("error validating GRN", "msg", err.Error())
+		return nil, err
+	}
+
+	fmt.Printf("r.Entity: %#v\n", r.Entity)
+
+	timestamp := time.Now().UnixMilli()
+	updatedAt := r.Entity.UpdatedAt
+	updatedBy := r.Entity.UpdatedBy
+	if updatedBy == "" {
+		modifier, err := appcontext.User(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if modifier == nil {
+			return nil, fmt.Errorf("can not find user in context")
+		}
+		updatedBy = store.GetUserIDString(modifier)
+	}
+	if updatedAt < 1000 {
+		updatedAt = timestamp
+	}
+
+	rsp := &entity.UpdateEntityResponse{
+		Entity: &entity.Entity{},
+		Status: entity.UpdateEntityResponse_UPDATED, // Will be changed if not true
+	}
+
+	err = s.sess.WithTransaction(ctx, func(tx *session.SessionTx) error {
+		current, err := s.read(ctx, tx, &entity.ReadEntityRequest{
+			GRN:         grn,
+			WithMeta:    true,
+			WithBody:    true,
+			WithStatus:  true,
+			WithSummary: true,
+		})
+		if err != nil {
+			return err
+		}
+
+		// Optimistic locking
+		if r.PreviousVersion != "" && r.PreviousVersion != current.Version {
+			return fmt.Errorf("optimistic lock failed")
+		}
+
+		// if we found an existing entity
+		if current.Guid == "" {
+			return fmt.Errorf("entity not found")
+		}
+
+		rsp.Entity.Guid = current.Guid
+
+		// Clear the labels+refs
+		if _, err := tx.Exec(ctx, "DELETE FROM entity_labels WHERE guid=?", rsp.Entity.Guid); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, "DELETE FROM entity_ref WHERE guid=?", rsp.Entity.Guid); err != nil {
+			return err
+		}
+
+		if r.Entity.GroupVersion != "" {
+			current.GroupVersion = r.Entity.GroupVersion
+		}
+
+		if r.Entity.Folder != "" {
+			current.Folder = r.Entity.Folder
+		}
+		if r.Entity.Slug != "" {
+			current.Slug = r.Entity.Slug
+		}
+
+		if r.Entity.Body != nil {
+			current.Body = r.Entity.Body
+			current.Size = int64(len(current.Body))
+		}
+
+		if r.Entity.Meta != nil {
+			current.Meta = r.Entity.Meta
+		}
+
+		if r.Entity.Status != nil {
+			current.Status = r.Entity.Status
+		}
+
+		etag := createContentsHash(current.Body, current.Meta, current.Status)
+		current.ETag = etag
+		current.UpdatedAt = updatedAt
+		current.UpdatedBy = updatedBy
+
+		if r.Entity.Name != "" {
+			current.Name = r.Entity.Name
+		}
+		if r.Entity.Description != "" {
+			current.Description = r.Entity.Description
+		}
+
+		labels, err := json.Marshal(r.Entity.Labels)
+		if err != nil {
+			s.log.Error("error marshalling labels", "msg", err.Error())
+			return err
+		}
+
+		fields, err := json.Marshal(r.Entity.Fields)
+		if err != nil {
+			s.log.Error("error marshalling fields", "msg", err.Error())
+			return err
+		}
+
+		errors, err := json.Marshal(r.Entity.Errors)
+		if err != nil {
+			s.log.Error("error marshalling errors", "msg", err.Error())
+			return err
+		}
+
+		if current.Origin == nil {
+			current.Origin = &entity.EntityOriginInfo{}
+		}
+
+		if r.Entity.Origin != nil {
+			if r.Entity.Origin.Source != "" {
+				current.Origin.Source = r.Entity.Origin.Source
+			}
+			if r.Entity.Origin.Key != "" {
+				current.Origin.Key = r.Entity.Origin.Key
+			}
+			if r.Entity.Origin.Time > 0 {
+				current.Origin.Time = r.Entity.Origin.Time
+			}
+		}
+
+		// Set the comment on this write
+		if r.Entity.Message != "" {
+			current.Message = r.Entity.Message
+		}
+
+		// Update version
+		current.Version = s.snowflake.Generate().String()
+
+		values := map[string]any{
+			"group_version": current.GroupVersion,
+			"folder":        current.Folder,
+			"slug":          current.Slug,
+			"updated_at":    updatedAt,
+			"updated_by":    updatedBy,
+			"body":          current.Body,
+			"meta":          current.Meta,
+			"status":        current.Status,
+			"size":          current.Size,
+			"etag":          current.ETag,
+			"version":       current.Version,
+			"name":          current.Name,
+			"description":   current.Description,
+			"labels":        labels,
+			"fields":        fields,
+			"errors":        errors,
+			"origin":        current.Origin.Source,
+			"origin_key":    current.Origin.Key,
+			"origin_ts":     current.Origin.Time,
+			"message":       current.Message,
+		}
+
+		fmt.Printf("VALUES: %+v\n", values)
+		fmt.Printf("CURRENT: %+v\n", current)
+
+		// 1. Add the `entity_history` values
+		query, args, err := s.dialect.InsertQuery("entity_history", values)
+		if err != nil {
+			s.log.Error("error building entity history insert", "msg", err.Error())
+			return err
+		}
+
+		_, err = tx.Exec(ctx, query, args...)
+		if err != nil {
+			s.log.Error("error writing entity history", "msg", err.Error())
+			return err
+		}
+
+		// 2. update the main `entity` table
+		query, args, err = s.dialect.UpdateQuery(
+			"entity",
+			values,
+			map[string]any{
+				"guid": current.Guid,
+			},
+		)
+		if err != nil {
+			s.log.Error("error building entity update sql", "msg", err.Error())
+			return err
+		}
+
+		_, err = tx.Exec(ctx, query, args...)
+		if err != nil {
+			s.log.Error("error updating entity", "msg", err.Error())
+			return err
+		}
+
+		/*
+			switch current.GRN.ResourceKind {
+			case entity.StandardKindFolder:
+				err = updateFolderTree(ctx, tx, r.Entity.GRN.TenantID)
+				if err != nil {
+					s.log.Error("error updating folder tree", "msg", err.Error())
+					return err
+				}
+			}
+		*/
+
+		rsp.Entity = current
+
+		return nil // s.writeSearchInfo(ctx, tx, current)
+	})
+	if err != nil {
+		s.log.Error("error updating entity", "msg", err.Error())
+		rsp.Status = entity.UpdateEntityResponse_ERROR
+	}
+
+	return rsp, err
+}
+
 /*
 func (s *sqlEntityServer) writeSearchInfo(
 	ctx context.Context,

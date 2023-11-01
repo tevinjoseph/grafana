@@ -112,17 +112,17 @@ func (s *Storage) Create(ctx context.Context, key string, obj runtime.Object, ou
 		return err
 	}
 
-	req := &entityStore.WriteEntityRequest{
+	req := &entityStore.CreateEntityRequest{
 		Entity: e,
 	}
 
 	fmt.Printf("req: %#v\n\n", req)
 
-	rsp, err := s.store.Write(ctx, req)
+	rsp, err := s.store.Create(ctx, req)
 	if err != nil {
 		return err
 	}
-	if rsp.Status != entityStore.WriteEntityResponse_CREATED {
+	if rsp.Status != entityStore.CreateEntityResponse_CREATED {
 		return fmt.Errorf("this was not a create operation... (%s)", rsp.Status.String())
 	}
 
@@ -374,19 +374,19 @@ func (s *Storage) guaranteedUpdate(
 		previousVersion = *preconditions.ResourceVersion
 	}
 
-	req := &entityStore.WriteEntityRequest{
+	req := &entityStore.UpdateEntityRequest{
 		Entity:          e,
 		PreviousVersion: previousVersion,
 	}
 
 	fmt.Printf("req: %#v\n", req)
 
-	rsp, err := s.store.Write(ctx, req)
+	rsp, err := s.store.Update(ctx, req)
 	if err != nil {
 		return err // continue???
 	}
 
-	if rsp.Status == entityStore.WriteEntityResponse_UNCHANGED {
+	if rsp.Status == entityStore.UpdateEntityResponse_UNCHANGED {
 		return nil // destination is already set
 	}
 
