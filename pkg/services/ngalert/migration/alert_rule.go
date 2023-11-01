@@ -9,11 +9,11 @@ import (
 	"github.com/grafana/grafana/pkg/components/simplejson"
 	"github.com/grafana/grafana/pkg/infra/log"
 	legacymodels "github.com/grafana/grafana/pkg/services/alerting/models"
+	"github.com/grafana/grafana/pkg/services/dashboards"
 	migmodels "github.com/grafana/grafana/pkg/services/ngalert/migration/models"
 	migrationStore "github.com/grafana/grafana/pkg/services/ngalert/migration/store"
 	ngmodels "github.com/grafana/grafana/pkg/services/ngalert/models"
 	"github.com/grafana/grafana/pkg/services/ngalert/store"
-	"github.com/grafana/grafana/pkg/tsdb/graphite"
 	"github.com/grafana/grafana/pkg/util"
 )
 
@@ -53,7 +53,13 @@ func (om *OrgMigration) migrateAlert(ctx context.Context, l log.Logger, da *migr
 	message := MigrateTmpl(l.New("field", "message"), da.Message)
 	annotations["message"] = message
 
-	data, err := migrateAlertRuleQueries(l, cond.Data)
+	// Getting the dashboard is important, as we might want to extract some data out of it. Especially for Graphite queries.
+	dashboard, err := om.migrationStore.GetDashboard(ctx, da.OrgID, da.DashboardID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to migrate alert rule queries: related dashboard could not be loaded: %w", err)
+	}
+
+	data, err := migrateAlertRuleQueries(l, cond.Data, da.PanelID, dashboard)
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate alert rule queries: %w", err)
 	}
@@ -129,7 +135,7 @@ func (om *OrgMigration) migrateAlert(ctx context.Context, l log.Logger, da *migr
 }
 
 // migrateAlertRuleQueries attempts to fix alert rule queries so they can work in unified alerting. Queries of some data sources are not compatible with unified alerting.
-func migrateAlertRuleQueries(l log.Logger, data []ngmodels.AlertQuery) ([]ngmodels.AlertQuery, error) {
+func migrateAlertRuleQueries(l log.Logger, data []ngmodels.AlertQuery, panelID int64, dashboard *dashboards.Dashboard) ([]ngmodels.AlertQuery, error) {
 	result := make([]ngmodels.AlertQuery, 0, len(data))
 	for _, d := range data {
 		// queries that are expression are not relevant, skip them.
@@ -144,7 +150,7 @@ func migrateAlertRuleQueries(l log.Logger, data []ngmodels.AlertQuery) ([]ngmode
 		}
 		// remove hidden tag from the query (if exists)
 		delete(fixedData, "hide")
-		fixedData = fixGraphiteReferencedSubQueries(fixedData)
+		fixedData = fixGraphiteReferencedSubQueries(l, fixedData, panelID, dashboard)
 		fixedData = fixPrometheusBothTypeQuery(l, fixedData)
 		updatedModel, err := json.Marshal(fixedData)
 		if err != nil {
@@ -154,18 +160,6 @@ func migrateAlertRuleQueries(l log.Logger, data []ngmodels.AlertQuery) ([]ngmode
 		result = append(result, d)
 	}
 	return result, nil
-}
-
-// fixGraphiteReferencedSubQueries attempts to fix graphite referenced sub queries, given unified alerting does not support this.
-// targetFull of Graphite data source contains the expanded version of field 'target', so let's copy that.
-func fixGraphiteReferencedSubQueries(queryData map[string]json.RawMessage) map[string]json.RawMessage {
-	fullQuery, ok := queryData[graphite.TargetFullModelField]
-	if ok {
-		delete(queryData, graphite.TargetFullModelField)
-		queryData[graphite.TargetModelField] = fullQuery
-	}
-
-	return queryData
 }
 
 // fixPrometheusBothTypeQuery converts Prometheus 'Both' type queries to range queries.
