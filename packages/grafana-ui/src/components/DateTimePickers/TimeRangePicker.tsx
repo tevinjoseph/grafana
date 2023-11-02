@@ -15,6 +15,7 @@ import {
   dateMath,
 } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
+import { reportInteraction } from '@grafana/runtime';
 
 import { useStyles2, useTheme2 } from '../../themes/ThemeContext';
 import { t, Trans } from '../../utils/i18n';
@@ -76,6 +77,8 @@ export function TimeRangePicker(props: TimeRangePickerProps) {
   };
 
   const onOpen = (event: FormEvent<HTMLButtonElement>) => {
+    console.log('LucyChen TimeRnageOpen');
+    reportInteraction('dashboards_toolbar_actions_clicked', { item: 'time_picker' });
     event.stopPropagation();
     event.preventDefault();
     setOpen(!isOpen);
