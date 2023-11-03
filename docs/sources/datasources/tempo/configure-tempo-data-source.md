@@ -204,7 +204,7 @@ datasources:
     jsonData:
       tracesToLogsV2:
         # Field with an internal link pointing to a logs data source in Grafana.
-        # datasourceUid value must match the uid value of the logs data source.
+        # datasourceUid value must match the name value of the logs data source.
         datasourceUid: 'loki'
         spanStartTimeShift: '1h'
         spanEndTimeShift: '-1h'
